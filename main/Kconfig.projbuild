@@ -1,14 +1,9 @@
 menu "Application settings"
 
-    config APP_MEASUREMENT_INTERVAL_SECONDS
-        int "Measurement interval in seconds"
+    config APP_TELEMETRY_INTERVAL_SECONDS
+        int "Telemetry interval in seconds"
         range 30 86400
-        default 3600
-
-    config APP_NETWORK_WAIT_SECONDS
-        int "Maximum Wi-Fi connection wait in seconds"
-        range 1 120
-        default 30
+        default 1800
 
     config APP_WIFI_SSID
         string "Wi-Fi SSID"

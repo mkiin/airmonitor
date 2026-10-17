@@ -3,19 +3,16 @@
 #include <stdbool.h>
 
 #include "esp_log.h"
-#include "esp_pm.h"
 #include "freertos/task.h"
 #include "scd4x_driver.h"
-#include "sdkconfig.h"
 
-#define ENV_MEASURE_INTERVAL_MS (CONFIG_APP_MEASUREMENT_INTERVAL_SECONDS * 1000U)
+#define ENV_MEASURE_POLL_INTERVAL_MS 5000U
 
-static const char          *TAG = "env_measure";
-static esp_pm_lock_handle_t s_pm_lock;
+static const char *TAG = "env_measure";
 
 static bool env_measure_try_read(env_measurement_t *sample)
 {
-    esp_err_t err = scd4x_driver_measure_single_shot(&sample->co2_ppm, &sample->temperature, &sample->humidity);
+    esp_err_t err = scd4x_driver_try_read_measurement(&sample->co2_ppm, &sample->temperature, &sample->humidity);
 
     if ( err == ESP_ERR_NOT_FINISHED )
     {
@@ -55,29 +52,21 @@ esp_err_t env_measure_init(void)
         return err;
     }
 
-    // Allow an in-flight single shot to finish after an ESP32-only reboot.
-    vTaskDelay(pdMS_TO_TICKS(5100));
-    // Wake-up has no ACK; periodic mode may reject the serial-number read.
-    (void)scd4x_driver_wake_up();
+    // Also handles an ESP32-only reboot while the sensor is still measuring.
     err = scd4x_driver_stop_periodic_measurement();
     if ( err != ESP_OK )
     {
         return err;
     }
 
-    err = scd4x_driver_disable_automatic_calibration();
+    err = scd4x_driver_start_periodic_measurement();
     if ( err != ESP_OK )
     {
         return err;
     }
 
-    err = scd4x_driver_power_down();
-    if ( err != ESP_OK )
-    {
-        return err;
-    }
-    ESP_LOGI(TAG, "Single-shot interval: %u seconds; ASC disabled", (unsigned)CONFIG_APP_MEASUREMENT_INTERVAL_SECONDS);
-    return esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "measurement", &s_pm_lock);
+    ESP_LOGI(TAG, "Periodic measurement started; updates every ~5 s");
+    return ESP_OK;
 }
 
 void env_measure_run(void *arg)
@@ -88,28 +77,13 @@ void env_measure_run(void *arg)
 
     for ( ;; )
     {
-        ESP_ERROR_CHECK(esp_pm_lock_acquire(s_pm_lock));
+        xTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(ENV_MEASURE_POLL_INTERVAL_MS));
         env_measurement_t sample;
-        esp_err_t         err   = scd4x_driver_wake_up();
-        bool              valid = false;
-        if ( err == ESP_OK )
+
+        if ( !env_measure_try_read(&sample) )
         {
-            valid = env_measure_try_read(&sample);
+            continue;
         }
-        else
-        {
-            ESP_LOGW(TAG, "Sensor wake failed: %s", esp_err_to_name(err));
-        }
-        err = scd4x_driver_power_down();
-        if ( err != ESP_OK )
-        {
-            ESP_LOGE(TAG, "Sensor power-down failed: %s; sensor may remain powered", esp_err_to_name(err));
-        }
-        if ( valid )
-        {
-            env_measure_publish(args->measurement_queue, &sample);
-        }
-        ESP_ERROR_CHECK(esp_pm_lock_release(s_pm_lock));
-        xTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(ENV_MEASURE_INTERVAL_MS));
+        env_measure_publish(args->measurement_queue, &sample);
     }
 }

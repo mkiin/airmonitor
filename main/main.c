@@ -1,7 +1,6 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
-#include "power_management.h"
 #include "sdkconfig.h"
 #include "taskmng.h"
 
@@ -18,7 +17,6 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-    ESP_ERROR_CHECK(power_management_init());
 
     ESP_ERROR_CHECK(taskmng_init_all());
     ESP_ERROR_CHECK(taskmng_create_all());
