@@ -72,8 +72,6 @@ extern "C"
         SCD4X_PERFORM_FACTORY_RESET_CMD_ID                          = 0x3632,
         SCD4X_REINIT_CMD_ID                                         = 0x3646,
         SCD4X_GET_SENSOR_VARIANT_RAW_CMD_ID                         = 0x202f,
-        SCD4X_MEASURE_SINGLE_SHOT_CMD_ID                            = 0x219d,
-        SCD4X_MEASURE_SINGLE_SHOT_RHT_ONLY_CMD_ID                   = 0x2196,
         SCD4X_POWER_DOWN_CMD_ID                                     = 0x36e0,
         SCD4X_WAKE_UP_CMD_ID                                        = 0x36f6,
         SCD4X_SET_AUTOMATIC_SELF_CALIBRATION_INITIAL_PERIOD_CMD_ID  = 0x2445,
@@ -607,35 +605,6 @@ extern "C"
      * @return error_code 0 on success, an error code otherwise.
      */
     int16_t scd4x_get_sensor_variant_raw(uint16_t *sensor_variant);
-
-    /**
-     * @brief On-demand measurement of the CO₂ concentration, temperature, and
-     * humidity.
-     *
-     * The sensor output is read out by using the read_measurement command. The
-     * fastest possible sampling interval for single shot measurements is 5 seconds.
-     * The ASC is enabled by default in single shot operation and optimized for
-     * single shot measurements performed every 5 minutes. For more details about
-     * single shot measurements and optimization of power consumption please refer
-     * to the datasheet.
-     *
-     * @note This command is only available for SCD41.
-     *
-     * @return error_code 0 on success, an error code otherwise.
-     */
-    int16_t scd4x_measure_single_shot();
-
-    /**
-     * @brief On-demand measurement of the temperature and humidity only.
-     *
-     * For more details about single shot measurements and optimization of power
-     * consumption please refer to the datasheet.
-     *
-     * @note This command is only available for SCD41.
-     *
-     * @return error_code 0 on success, an error code otherwise.
-     */
-    int16_t scd4x_measure_single_shot_rht_only();
 
     /**
      * @brief Put the sensor into sleep mode from idle mode.

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCD41 再設計案のシーケンス図</title>
+  <style>
+    :root { --bg:#f3f7f6; --paper:#fff; --ink:#15333a; --muted:#536e74; --line:#abc1c5; --call:#256f83; --data:#137c71; --time:#b65c42; --time-bg:#fff1e9; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; line-height:1.55; }
+    header, main, footer { width:min(1240px,calc(100% - 32px)); margin-inline:auto; }
+    header { padding:42px 0 24px; }
+    .eyebrow { margin:0 0 9px; color:var(--data); font-weight:800; font-size:.77rem; letter-spacing:.15em; }
+    h1 { margin:0; font-size:clamp(1.8rem,3.8vw,2.8rem); letter-spacing:-.035em; }
+    .lead { max-width:890px; margin:12px 0 0; color:var(--muted); }
+    .pills { display:flex; flex-wrap:wrap; gap:9px; margin-top:19px; }
+    .pill { padding:5px 10px; border-radius:999px; background:#e4f3f0; color:#086b62; font-size:.79rem; font-weight:700; }
+    main { display:grid; gap:23px; padding-bottom:32px; }
+    section { overflow:hidden; background:var(--paper); border:1px solid #d5e1e1; border-radius:17px; box-shadow:0 10px 28px #153d4010; }
+    .heading { padding:24px 25px 14px; }
+    .heading h2 { margin:0; font-size:1.25rem; }
+    .heading p { margin:5px 0 0; color:var(--muted); font-size:.91rem; }
+    .scroll { overflow-x:auto; padding:0 18px 14px; }
+    svg { display:block; width:100%; min-width:1420px; height:auto; }
+    .actor { fill:#f6faf9; stroke:#83a5a9; stroke-width:1.4; }
+    .actor-name { fill:var(--ink); font-size:14px; font-family:inherit; font-weight:750; text-anchor:middle; }
+    .actor-role { fill:#6c8589; font-size:11px; font-family:inherit; text-anchor:middle; }
+    .life { stroke:#b8cacc; stroke-width:1.2; stroke-dasharray:5 6; }
+    .arrow { stroke:var(--call); stroke-width:2; marker-end:url(#head-call); }
+    .arrow.data { stroke:var(--data); marker-end:url(#head-data); }
+    .arrow.time { stroke:var(--time); stroke-width:2.5; marker-end:url(#head-time); }
+    .label { fill:var(--ink); font-size:13px; font-family:inherit; font-weight:650; text-anchor:middle; }
+    .label.data { fill:var(--data); }
+    .label.time { fill:var(--time); }
+    .branch { fill:#e8f4f1; }
+    .branch-label { fill:#0b766b; font-size:13px; font-family:inherit; font-weight:800; }
+    .step { fill:#85999d; font-size:11px; font-family:inherit; text-anchor:end; }
+    .self-note { fill:#e9f3f1; }
+    .self-note-text { fill:#126e65; font-size:12.5px; font-family:inherit; font-weight:700; }
+    .explain { margin:0 25px 22px; padding:13px 16px; border-left:4px solid var(--data); border-radius:0 8px 8px 0; background:#edf7f4; font-size:.89rem; }
+    .explain.time { border-color:var(--time); background:var(--time-bg); }
+    .bottom { padding:21px 25px; border-left:5px solid var(--time); }
+    .bottom h2 { margin:0 0 6px; font-size:1.1rem; }
+    .bottom p { margin:0; color:var(--muted); }
+    code { padding:.07em .26em; border-radius:4px; background:#eaf0ef; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.89em; }
+    footer { padding:0 0 30px; color:var(--muted); font-size:.8rem; }
+    @media(max-width:700px) { header { padding-top:25px; } .heading { padding:19px 17px 12px; } .explain { margin-inline:17px; } .bottom { padding:19px 17px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">PROPOSAL · SEQUENCE DIAGRAM</p>
+    <h1>単一タイマーの期限通知で進む案</h1>
+    <p class="lead"><code>taskmng</code> がタスクハンドルと単一のタイマーハンドルを所有します。<code>env_measure_task</code> は状態と次の期限を決め、<code>scd4x</code> はコマンド・CRC・値変換を担当します。このページは設計案であり、現行コードの動作ではありません。</p>
+    <div class="pills"><span class="pill">taskmng：両ハンドルを所有</span><span class="pill">500 ms・1 ms・5秒：同じ esp_timer</span><span class="pill">期限到来：TaskHandle_t へ通知</span></div>
+  </header>
+  <main>
+    <section aria-labelledby="init-title">
+      <div class="heading"><h2 id="init-title">1. 初期化</h2><p>停止コマンド後はタスクを待機状態にし、500 msの期限通知で開始コマンドへ進みます。</p></div>
+      <div id="init-sequence" class="scroll" role="img" aria-label="再設計案の初期化シーケンス図"></div>
+      <p class="explain time"><code>taskmng</code> がタイマーを作成し、<code>xTaskCreate()</code> で得た測定タスクの <code>TaskHandle_t</code> とともに保持します。測定タスクにはタイマーハンドルを借用させます。停止コマンド後、タスクは <code>WAIT_STOP</code> に移り <code>esp_timer_start_once(500000)</code>。<code>taskmng</code> 内のタイマーコールバックは保持する <code>TaskHandle_t</code> に <code>xTaskNotify(..., eSetBits)</code> します。現在の <code>env_measure_init()</code> にある停止・開始処理はタスク内へ移す想定です。</p>
+    </section>
+    <section aria-labelledby="read-title">
+      <div class="heading"><h2 id="read-title">2. 周期測定の読み取り</h2><p>SCD41 自身は約5秒ごとに測定を続けます。タイマー通知を受けたタスクが準備状態を確認します。</p></div>
+      <div id="read-sequence" class="scroll" role="img" aria-label="再設計案の測定シーケンス図"></div>
+      <p class="explain">同じワンショットタイマーを5秒と1 msの期限に再設定します。タスクは <code>xTaskNotifyWait()</code> で通知を受け、保持する状態に応じて次のコマンドか応答読取を実行します。コールバックは <code>taskmng</code> にあり、I²Cを操作しません。5秒の通知は「測定準備完了」ではなく、準備状態を確認する時刻を示します。</p>
+    </section>
+    <section class="bottom" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">境界の変化</h2>
+      <p><code>TaskHandle_t</code> が通知先そのものなので、別の「通知ハンドル」は不要です。<code>taskmng</code> が両ハンドルの生成と寿命を管理し、<code>env_measure_task</code> はタイマーを借用して状態遷移を進めます。<code>scd4x</code> はコマンド送信と応答読取を分け、I²C送受信は短い同期通信のままです。</p>
+    </section>
+  </main>
+  <footer>設計案：センサーから完了割り込みは来ません。タイマーの通知は期限到来のみを示します。</footer>
+  <script>
+    const columns = [110,350,590,830,1070,1310];
+    const actors = [
+      ["taskmng","handle owner / callback"],
+      ["env_measure_task","FreeRTOS task"],
+      ["scd4x","protocol / CRC"],
+      ["ESP-IDF I²C","transport"],
+      ["SCD41","sensor"],
+      ["esp_timer","one-shot"],
+    ];
+    const initSteps = [
+      [0,5,"esp_timer_create(callback=taskmng)","time"],
+      [5,0,"timer handle を保持","data"],
+      [0,1,"xTaskCreate(..., &task_handle)"],
+      [0,0,"TaskHandle_t を保持 / timer を args で貸す","note"],
+      [1,2,"scd4x_create()"],
+      [2,3,"i2c_master_bus_add_device()"],
+      [1,2,"stop_periodic_measurement()"],
+      [2,3,"transmit(0x3f86)"],
+      [3,4,"停止コマンド","data"],
+      [2,1,"送信結果を返す","data"],
+      [1,1,"WAIT_STOP に遷移","note"],
+      [1,5,"esp_timer_start_once(500000)","time"],
+      [1,1,"xTaskNotifyWait()","note"],
+      [5,0,"500 ms後：callback()","time"],
+      [0,1,"xTaskNotify(task_handle, TIMER_BIT)","time"],
+      [1,2,"start_periodic_measurement()"],
+      [2,3,"transmit(0x21b1)"],
+      [3,4,"開始コマンド","data"],
+      [2,1,"送信結果を返す","data"],
+      [1,1,"WAIT_SAMPLE に遷移","note"],
+      [1,5,"esp_timer_start_once(5000000)","time"],
+      [1,1,"xTaskNotifyWait()","note"]
+    ];
+    const readSteps = [
+      [5,0,"5秒後：callback()","time"],
+      [0,1,"xTaskNotify(task_handle, TIMER_BIT)","time"],
+      [1,1,"WAIT_SAMPLE → 準備状態を確認","note"],
+      [1,2,"request_data_ready()"],
+      [2,3,"transmit(0xe4b8)"],
+      [3,4,"準備確認コマンド","data"],
+      [2,1,"送信結果を返す","data"],
+      [1,1,"WAIT_READY_REPLY に遷移","note"],
+      [1,5,"esp_timer_start_once(1000)","time"],
+      [1,1,"xTaskNotifyWait()","note"],
+      [5,0,"1 ms後：callback()","time"],
+      [0,1,"xTaskNotify(task_handle, TIMER_BIT)","time"],
+      [1,2,"read_data_ready()"],
+      [2,3,"receive(3バイト)"],
+      [4,3,"準備状態の応答","data"],
+      [2,2,"CRC検証 / READY判定","note"],
+      [2,1,"READY または NOT_READY","data"],
+      [1,1,"NOT_READY の場合","branch"],
+      [1,1,"WAIT_SAMPLE に遷移","note"],
+      [1,5,"esp_timer_start_once(5000000)","time"],
+      [1,1,"xTaskNotifyWait() → 次回確認","note"],
+      [1,1,"READY の場合","branch"],
+      [1,2,"request_measurement()"],
+      [2,3,"transmit(0xec05)"],
+      [3,4,"測定値要求","data"],
+      [2,1,"送信結果を返す","data"],
+      [1,1,"WAIT_MEAS_REPLY に遷移","note"],
+      [1,5,"esp_timer_start_once(1000)","time"],
+      [1,1,"xTaskNotifyWait()","note"],
+      [5,0,"1 ms後：callback()","time"],
+      [0,1,"xTaskNotify(task_handle, TIMER_BIT)","time"],
+      [1,2,"read_measurement()"],
+      [2,3,"receive(9バイト)"],
+      [4,3,"CO₂・温度・湿度の応答","data"],
+      [2,2,"CRC検証 / 値変換","note"],
+      [2,1,"測定値を返す","data"],
+      [1,1,"Queueへ最新値を保存","note"],
+      [1,1,"WAIT_SAMPLE に遷移","note"],
+      [1,5,"esp_timer_start_once(5000000)","time"],
+      [1,1,"xTaskNotifyWait()","note"]
+    ];
+    const ns = "http://www.w3.org/2000/svg";
+    function el(name, attrs, text) {
+      const result = document.createElementNS(ns,name);
+      for (const [key,value] of Object.entries(attrs)) result.setAttribute(key,String(value));
+      if (text !== undefined) result.textContent = text;
+      return result;
+    }
+    function render(target, actors, steps) {
+      const width=1420, top=92, row=53, height=top+steps.length*row+50;
+      const svg=el("svg",{viewBox:`0 0 ${width} ${height}`,role:"presentation"});
+      const defs=el("defs",{});
+      for (const [name,color] of [["call","#256f83"],["data","#137c71"],["time","#b65c42"]]) {
+        const marker=el("marker",{id:`head-${name}`,markerWidth:9,markerHeight:9,refX:8,refY:4.5,orient:"auto"});
+        marker.append(el("path",{d:"M0 0 L9 4.5 L0 9 Z",fill:color}));
+        defs.append(marker);
+      }
+      svg.append(defs);
+      actors.forEach(([name,role],index) => {
+        const x=columns[index];
+        svg.append(el("line",{x1:x,y1:69,x2:x,y2:height-20,class:"life"}));
+        svg.append(el("rect",{x:x-91,y:8,width:182,height:61,rx:10,class:"actor"}));
+        svg.append(el("text",{x,y:35,class:"actor-name"},name));
+        svg.append(el("text",{x,y:54,class:"actor-role"},role));
+      });
+      steps.forEach(([from,to,label,kind="call"],index) => {
+        const y=top+index*row;
+        if (kind === "branch") {
+          svg.append(el("rect",{x:25,y:y-17,width:1370,height:35,rx:7,class:"branch"}));
+          svg.append(el("text",{x:42,y:y+7,class:"branch-label"},label));
+          return;
+        }
+        svg.append(el("text",{x:18,y:y+8,class:"step"},index+1));
+        if (from === to) {
+          const x=columns[from]+14;
+          svg.append(el("rect",{x,y:y-18,width:Math.min(label.length*15+22,500),height:31,rx:6,class:"self-note"}));
+          svg.append(el("text",{x:x+10,y:y+3,class:"self-note-text"},label));
+          return;
+        }
+        const x1=columns[from]+(to>from?14:-14), x2=columns[to]+(to>from?-14:14);
+        svg.append(el("line",{x1,y1:y+9,x2,y2:y+9,class:`arrow ${kind === "data" || kind === "time" ? kind : ""}`}));
+        svg.append(el("text",{x:(x1+x2)/2,y:y-3,class:`label ${kind === "data" || kind === "time" ? kind : ""}`},label));
+      });
+      document.getElementById(target).append(svg);
+    }
+    render("init-sequence",actors,initSteps);
+    render("read-sequence",actors,readSteps);
+  </script>
+</body>
+</html>

@@ -560,36 +560,6 @@ int16_t scd4x_get_sensor_variant_raw(uint16_t *sensor_variant)
     return local_error;
 }
 
-int16_t scd4x_measure_single_shot()
-{
-    int16_t  local_error  = NO_ERROR;
-    uint8_t *buffer_ptr   = communication_buffer;
-    uint16_t local_offset = 0;
-    local_offset          = sensirion_i2c_add_command16_to_buffer(buffer_ptr, local_offset, 0x219d);
-    local_error           = sensirion_i2c_write_data(_i2c_address, buffer_ptr, local_offset);
-    if ( local_error != NO_ERROR )
-    {
-        return local_error;
-    }
-    sensirion_i2c_hal_sleep_usec(5000 * 1000);
-    return local_error;
-}
-
-int16_t scd4x_measure_single_shot_rht_only()
-{
-    int16_t  local_error  = NO_ERROR;
-    uint8_t *buffer_ptr   = communication_buffer;
-    uint16_t local_offset = 0;
-    local_offset          = sensirion_i2c_add_command16_to_buffer(buffer_ptr, local_offset, 0x2196);
-    local_error           = sensirion_i2c_write_data(_i2c_address, buffer_ptr, local_offset);
-    if ( local_error != NO_ERROR )
-    {
-        return local_error;
-    }
-    sensirion_i2c_hal_sleep_usec(50 * 1000);
-    return local_error;
-}
-
 int16_t scd4x_power_down()
 {
     int16_t  local_error  = NO_ERROR;

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCD41 測定処理のオブジェクト図</title>
+  <style>
+    :root { color-scheme: light; --ink:#183039; --muted:#526771; --line:#c7d6da; --paper:#f5f8f7; --card:#fff; --current:#bd5949; --current-bg:#fff0ec; --next:#087d72; --next-bg:#e5f5f1; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; line-height:1.55; }
+    header, main, footer { width:min(1200px,calc(100% - 32px)); margin-inline:auto; }
+    header { padding:48px 0 24px; }
+    .eyebrow { margin:0 0 10px; color:var(--next); font-size:.77rem; font-weight:800; letter-spacing:.16em; }
+    h1 { margin:0; font-size:clamp(1.8rem,4vw,3rem); letter-spacing:-.04em; line-height:1.22; }
+    .lead { max-width:850px; margin:16px 0 0; color:var(--muted); font-size:1rem; }
+    main { display:grid; gap:26px; padding-bottom:44px; }
+    section { overflow:hidden; background:var(--card); border:1px solid var(--line); border-radius:20px; box-shadow:0 12px 36px #203d4210; }
+    .section-head { display:flex; align-items:flex-start; gap:16px; padding:24px 28px 18px; }
+    .number { flex:none; display:grid; place-items:center; width:38px; height:38px; border-radius:11px; font-weight:800; }
+    .current .number { color:var(--current); background:var(--current-bg); }
+    .next .number { color:var(--next); background:var(--next-bg); }
+    h2 { margin:0; font-size:1.3rem; }
+    .section-head p { margin:4px 0 0; color:var(--muted); font-size:.92rem; }
+    .diagram-scroll { overflow-x:auto; padding:8px 18px 18px; }
+    svg { display:block; width:100%; min-width:980px; height:auto; font-family:inherit; }
+    .node { fill:#fff; stroke:#90a9b0; stroke-width:1.5; }
+    .node-title { fill:var(--ink); font-size:17px; font-weight:700; text-decoration:underline; }
+    .node-line { stroke:#bacbd0; stroke-width:1; }
+    .node-text { fill:#405860; font-size:14px; }
+    .edge { fill:none; stroke:#809da3; stroke-width:2.3; marker-end:url(#arrow); }
+    .edge-label { fill:#506971; font-size:13px; font-weight:700; }
+    .bad-edge { stroke:var(--current); marker-end:url(#bad-arrow); }
+    .good-edge { stroke:var(--next); marker-end:url(#good-arrow); }
+    .bad-label { fill:var(--current); }
+    .good-label { fill:var(--next); }
+    .node-current { stroke:var(--current); fill:#fff9f7; }
+    .node-next { stroke:var(--next); fill:#f5fcfa; }
+    .caption { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; padding:0 28px 26px; }
+    .fact { border-radius:12px; background:#f3f7f6; padding:14px 16px; font-size:.88rem; }
+    .fact strong { display:block; margin-bottom:3px; }
+    .fact span { color:var(--muted); }
+    .current .fact:first-child { background:var(--current-bg); }
+    .next .fact:first-child { background:var(--next-bg); }
+    .summary { padding:24px 28px; border-left:5px solid var(--next); }
+    .summary h2 { margin-bottom:8px; }
+    .summary p { margin:0; color:var(--muted); }
+    code { padding:.08em .3em; border-radius:4px; background:#eaf0ef; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.88em; }
+    footer { padding:0 0 36px; color:var(--muted); font-size:.8rem; }
+    @media (max-width:760px) { header { padding-top:28px; } .section-head { padding:20px 18px 14px; } .caption { grid-template-columns:1fr; padding:0 18px 20px; } .summary { padding:20px 18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">SCD41 · OBJECT DIAGRAM</p>
+    <h1>測定処理の時間管理を、どこが持つか</h1>
+    <p class="lead">各箱は実行時のオブジェクト、矢印は呼び出しやイベントです。単発測定 API は削除済みですが、周期測定の経路には vendor 関数内の待機が残っています。</p>
+  </header>
+  <main>
+    <section class="current" aria-labelledby="current-title">
+      <div class="section-head"><span class="number">01</span><div><h2 id="current-title">現状：待機が呼び出しの内側にある</h2><p>測定タスクから見ると、センサーコマンドの途中でいつ待つかが隠れています。</p></div></div>
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 1160 438" role="img" aria-labelledby="current-svg-title current-svg-desc">
+          <title id="current-svg-title">現状の SCD41 オブジェクト図</title>
+          <desc id="current-svg-desc">測定タスク、ドライバー、vendor API、I2C HAL、センサー、FreeRTOS。vendor API が HAL の sleep 関数を呼び、HAL が FreeRTOS の vTaskDelay を呼ぶ。</desc>
+          <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#809da3"/></marker><marker id="bad-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#bd5949"/></marker></defs>
+          <path class="edge" d="M220 132 H258"/><path class="edge" d="M448 132 H486"/><path class="edge" d="M676 132 H714"/>
+          <path class="edge" d="M809 225 V291 H692 V309"/>
+          <path class="edge bad-edge" d="M904 166 H945 V309"/>
+          <text class="edge-label" x="220" y="113">呼ぶ</text><text class="edge-label" x="451" y="113">呼ぶ</text><text class="edge-label" x="693" y="113">I²C</text>
+          <text class="edge-label" x="697" y="279">送受信</text><text class="edge-label bad-label" x="920" y="262">vTaskDelay</text>
+          <g><rect class="node" x="30" y="46" width="190" height="179" rx="12"/><text class="node-title" x="46" y="77">measure : Task</text><path class="node-line" d="M30 91 H220"/><text class="node-text" x="46" y="119">5秒ごとに測定確認</text><text class="node-text" x="46" y="144">Queue に最新値を保存</text><text class="node-text" x="46" y="187">自身も周期待機する</text></g>
+          <g><rect class="node" x="258" y="46" width="190" height="179" rx="12"/><text class="node-title" x="274" y="77">driver : Scd4x</text><path class="node-line" d="M258 91 H448"/><text class="node-text" x="274" y="119">初期化・停止・開始</text><text class="node-text" x="274" y="144">準備確認・値取得</text><text class="node-text" x="274" y="187">待機の詳細を知らない</text></g>
+          <g><rect class="node node-current" x="486" y="46" width="190" height="179" rx="12"/><text class="node-title" x="502" y="77">vendor : SCD4x API</text><path class="node-line" d="M486 91 H676"/><text class="node-text" x="502" y="119">コマンド送信</text><text class="node-text" x="502" y="144">500ms / 1ms 待機</text><text class="node-text" x="502" y="169">応答読取</text><text class="node-text" x="502" y="200">同期 API に時間を内包</text></g>
+          <g><rect class="node node-current" x="714" y="46" width="190" height="179" rx="12"/><text class="node-title" x="730" y="77">hal : I2cHal</text><path class="node-line" d="M714 91 H904"/><text class="node-text" x="730" y="119">I²C write / read</text><text class="node-text" x="730" y="144">sleep_usec()</text><text class="node-text" x="730" y="187">送受信と待機を兼務</text></g>
+          <g><rect class="node" x="578" y="310" width="230" height="87" rx="12"/><text class="node-title" x="594" y="340">sensor : SCD41</text><path class="node-line" d="M578 352 H808"/><text class="node-text" x="594" y="377">測定・I²C 応答</text></g>
+          <g><rect class="node node-current" x="834" y="310" width="270" height="87" rx="12"/><text class="node-title" x="850" y="340">scheduler : FreeRTOS</text><path class="node-line" d="M834 352 H1104"/><text class="node-text" x="850" y="377">タスク待機を実行</text></g>
+        </svg>
+      </div>
+      <div class="caption">
+        <div class="fact"><strong>問題の境界</strong><span>HAL の <code>sleep_usec</code> が OS API を直接呼ぶ。</span></div>
+        <div class="fact"><strong>まだ残る待機</strong><span>停止後 500ms、準備確認と値取得で各 1ms。</span></div>
+        <div class="fact"><strong>単発測定</strong><span>5秒待機を含む単発 API は削除済み。図には含めない。</span></div>
+      </div>
+    </section>
+
+    <section class="next" aria-labelledby="next-title">
+      <div class="section-head"><span class="number">02</span><div><h2 id="next-title">対策案：状態とタイマーイベントを測定タスクが持つ</h2><p>コマンド送信、センサー内部の処理待ち、応答読取を別の遷移に分けます。これは設計案で、現行コードには未実装です。</p></div></div>
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 1160 438" role="img" aria-labelledby="next-svg-title next-svg-desc">
+          <title id="next-svg-title">対策案の SCD41 オブジェクト図</title>
+          <desc id="next-svg-desc">測定タスクが状態を保持し、タイマーから通知を受ける。プロトコルドライバーはコマンド組み立てと応答解析を行い、I2C HAL は送受信だけを行う。</desc>
+          <defs><marker id="good-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#087d72"/></marker></defs>
+          <path class="edge good-edge" d="M244 132 H274"/><path class="edge good-edge" d="M488 132 H518"/><path class="edge good-edge" d="M732 132 H762"/>
+          <path class="edge good-edge" d="M95 225 V282 H150 V313"/><path class="edge good-edge" d="M245 313 V267 H185 V225"/>
+          <text class="edge-label good-label" x="242" y="113">操作</text><text class="edge-label good-label" x="491" y="113">送受信</text><text class="edge-label good-label" x="733" y="113">I²C</text>
+          <text class="edge-label good-label" x="24" y="271">期限を登録</text><text class="edge-label good-label" x="224" y="256">期限イベント</text>
+          <g><rect class="node node-next" x="30" y="46" width="214" height="179" rx="12"/><text class="node-title" x="46" y="77">measure : StateMachine</text><path class="node-line" d="M30 91 H244"/><text class="node-text" x="46" y="119">現在状態と期限を保持</text><text class="node-text" x="46" y="144">イベントで次の操作へ</text><text class="node-text" x="46" y="187">Queue に最新値を保存</text></g>
+          <g><rect class="node node-next" x="274" y="46" width="214" height="179" rx="12"/><text class="node-title" x="290" y="77">protocol : Scd4x</text><path class="node-line" d="M274 91 H488"/><text class="node-text" x="290" y="119">コマンド組み立て</text><text class="node-text" x="290" y="144">CRC・応答解析</text><text class="node-text" x="290" y="187">待機・OS API なし</text></g>
+          <g><rect class="node node-next" x="518" y="46" width="214" height="179" rx="12"/><text class="node-title" x="534" y="77">port : I2cPort</text><path class="node-line" d="M518 91 H732"/><text class="node-text" x="534" y="119">I²C write / read</text><text class="node-text" x="534" y="144">ESP-IDF に接続</text><text class="node-text" x="534" y="187">sleep 関数なし</text></g>
+          <g><rect class="node" x="762" y="46" width="214" height="179" rx="12"/><text class="node-title" x="778" y="77">sensor : SCD41</text><path class="node-line" d="M762 91 H976"/><text class="node-text" x="778" y="119">コマンド処理</text><text class="node-text" x="778" y="144">データ準備</text><text class="node-text" x="778" y="187">I²C 応答</text></g>
+          <g><rect class="node node-next" x="114" y="313" width="186" height="86" rx="12"/><text class="node-title" x="130" y="343">timer : esp_timer</text><path class="node-line" d="M114 355 H300"/><text class="node-text" x="130" y="379">1ms / 500ms / 5秒</text></g>
+        </svg>
+      </div>
+      <div class="caption">
+        <div class="fact"><strong>状態遷移</strong><span>停止送信 → 500ms → 開始 → 5秒 → 準備確認送信 → 1ms → 状態読取 → 測定値要求 → 1ms → 値読取。</span></div>
+        <div class="fact"><strong>イベントの受け手</strong><span>タイマーは通知だけ。I²C 操作は測定タスクが行う。</span></div>
+        <div class="fact"><strong>ドライバーの範囲</strong><span>使うコマンドだけを持つ小さなプロトコルドライバーへ置換する。</span></div>
+      </div>
+    </section>
+
+    <section class="summary" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">変更する境界</h2>
+      <p>時間の所有者を <code>vendor API / HAL</code> から <code>measure : StateMachine</code> に移す。I²C 自体は短い同期トランザクションのままでよく、センサー処理の待ち時間だけをイベントに分ける。</p>
+    </section>
+  </main>
+  <footer>現状はリポジトリのコードに基づく。対策案は設計図であり、実装済みの動作を示すものではない。</footer>
+</body>
+</html>

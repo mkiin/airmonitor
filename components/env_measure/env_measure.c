@@ -52,7 +52,6 @@ esp_err_t env_measure_init(void)
         return err;
     }
 
-    // Also handles an ESP32-only reboot while the sensor is still measuring.
     err = scd4x_driver_stop_periodic_measurement();
     if ( err != ESP_OK )
     {

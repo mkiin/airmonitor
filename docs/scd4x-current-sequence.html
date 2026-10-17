@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCD41 現行実装のシーケンス図</title>
+  <style>
+    :root { --bg:#f4f7f6; --card:#fff; --ink:#17333b; --muted:#587078; --line:#b9cbd0; --blue:#27758a; --red:#bf544b; --red-bg:#fff0ec; --green:#147b70; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; line-height:1.55; }
+    header, main, footer { width:min(1320px,calc(100% - 32px)); margin:auto; }
+    header { padding:44px 0 25px; }
+    .eyebrow { margin:0 0 8px; color:var(--blue); font-size:.75rem; letter-spacing:.15em; font-weight:800; }
+    h1 { margin:0; font-size:clamp(1.7rem,3.5vw,2.8rem); letter-spacing:-.035em; }
+    .lead { max-width:860px; margin:12px 0 0; color:var(--muted); }
+    .legend { display:flex; flex-wrap:wrap; gap:14px 24px; margin-top:20px; font-size:.87rem; color:var(--muted); }
+    .legend span { display:inline-flex; align-items:center; gap:8px; }
+    .swatch { width:28px; height:3px; border-radius:3px; background:var(--blue); }
+    .swatch.wait { background:var(--red); }
+    .swatch.data { background:var(--green); }
+    main { display:grid; gap:24px; padding-bottom:36px; }
+    section { background:var(--card); border:1px solid #d7e1e3; border-radius:18px; overflow:hidden; box-shadow:0 10px 28px #1b3d4210; }
+    .section-heading { padding:23px 25px 13px; }
+    .section-heading h2 { margin:0; font-size:1.28rem; }
+    .section-heading p { margin:5px 0 0; color:var(--muted); font-size:.9rem; }
+    .diagram { overflow-x:auto; padding:2px 18px 16px; }
+    .diagram svg { display:block; width:100%; min-width:1240px; height:auto; }
+    .participant { fill:#f7faf9; stroke:#8da8ae; stroke-width:1.4; }
+    .participant-text { fill:var(--ink); font-family:inherit; font-size:14px; font-weight:700; }
+    .participant-role { fill:#667e84; font-family:inherit; font-size:11px; text-anchor:middle; }
+    .lifeline { stroke:#bacbd0; stroke-width:1.25; stroke-dasharray:6 6; }
+    .message { stroke:var(--blue); stroke-width:2; marker-end:url(#arrow-blue); }
+    .message.wait { stroke:var(--red); stroke-width:2.8; marker-end:url(#arrow-red); }
+    .message.data { stroke:var(--green); marker-end:url(#arrow-green); }
+    .message-label { fill:var(--ink); font-family:inherit; font-size:12.5px; font-weight:650; text-anchor:middle; }
+    .message-label.wait { fill:var(--red); }
+    .message-label.data { fill:var(--green); }
+    .step-number { fill:#7b9197; font-family:inherit; font-size:11px; text-anchor:end; }
+    .separator { fill:#edf5f3; }
+    .separator-text { fill:var(--green); font-family:inherit; font-size:13px; font-weight:750; }
+    .note { margin:0 25px 24px; padding:13px 16px; border-left:4px solid var(--red); background:var(--red-bg); border-radius:0 9px 9px 0; font-size:.9rem; }
+    .note strong { color:#9e4239; }
+    .sources { margin:0 25px 22px; color:var(--muted); font-size:.83rem; }
+    a { color:#136f87; text-underline-offset:2px; }
+    code { padding:.08em .28em; border-radius:4px; background:#e9f0f0; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.9em; }
+    footer { color:var(--muted); font-size:.8rem; padding:0 0 32px; }
+    @media(max-width:700px) { header { padding-top:25px; } .section-heading { padding:19px 17px 12px; } .note,.sources { margin-inline:17px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">CURRENT CODE · SEQUENCE DIAGRAM</p>
+    <h1>SCD41 の呼び出し順</h1>
+    <p class="lead">現行実装の初期化と測定を、関数の呼び出し順で示します。横方向は担当する層、縦方向は時間です。赤い矢印が、vendor から HAL 経由で FreeRTOS に入る待機です。</p>
+    <div class="legend" aria-label="凡例"><span><i class="swatch"></i>関数呼び出し</span><span><i class="swatch data"></i>I²C 送受信・測定値</span><span><i class="swatch wait"></i>待機の呼び出し</span></div>
+  </header>
+  <main>
+    <section aria-labelledby="startup-title">
+      <div class="section-heading"><h2 id="startup-title">1. 起動時：周期測定を停止して再開</h2><p><code>env_measure_init()</code> から呼ばれる順番。停止コマンド直後の500 ms待機は、vendor 関数が戻る前に実行されます。</p></div>
+      <div id="startup-diagram" class="diagram" role="img" aria-label="起動時のシーケンス図"></div>
+      <p class="note"><strong>待機の所在：</strong> <code>scd4x_stop_periodic_measurement()</code> → <code>sensirion_i2c_hal_sleep_usec(500000)</code> → <code>vTaskDelay()</code>。停止完了の通知をセンサーから受けているわけではありません。</p>
+      <p class="sources">該当コード：<a href="../components/env_measure/env_measure.c">env_measure.c</a> ／ <a href="../components/scd4x/vendor/scd4x_i2c.c">scd4x_i2c.c</a> ／ <a href="../components/scd4x/sensirion_i2c_hal_espidf.c">sensirion_i2c_hal_espidf.c</a></p>
+    </section>
+    <section aria-labelledby="measurement-title">
+      <div class="section-heading"><h2 id="measurement-title">2. 動作中：約5秒ごとに準備確認・読み取り</h2><p><code>env_measure_run()</code> の1回分。NOT_READY なら値の読み取りをせず、次の周期まで進みます。</p></div>
+      <div id="measurement-diagram" class="diagram" role="img" aria-label="測定時のシーケンス図"></div>
+      <p class="note"><strong>待機の所在：</strong> 5秒周期は <code>env_measure_run()</code> 側。準備確認と測定値取得の各1 msは vendor 関数から HAL の <code>sleep_usec()</code> を呼びます。HAL はそこで <code>vTaskDelay()</code> を実行します。</p>
+      <p class="sources">該当コード：<a href="../components/scd4x/scd4x_driver.c">scd4x_driver.c</a> ／ <a href="../components/scd4x/vendor/sensirion_i2c.c">sensirion_i2c.c</a> ／ <a href="../components/scd4x/vendor/scd4x_i2c.c">scd4x_i2c.c</a></p>
+    </section>
+  </main>
+  <footer>この図は現行コードの説明です。以前議論した通知型の対策案は含めていません。</footer>
+  <script>
+    const actors = [
+      ["env_measure", "Task"],
+      ["scd4x_driver", "App wrapper"],
+      ["scd4x_i2c", "Vendor API"],
+      ["sensirion_i2c", "Vendor helper"],
+      ["sensirion HAL", "ESP-IDF adapter"],
+      ["SCD41", "Sensor"],
+      ["FreeRTOS", "Scheduler"]
+    ];
+    const startup = [
+      [0,1,"scd4x_driver_init()"],
+      [1,4,"scd4x_hal_create()"],
+      [1,2,"scd4x_init(0x62)"],
+      [0,1,"stop_periodic_measurement()"],
+      [1,2,"scd4x_stop_periodic_measurement()"],
+      [2,3,"write_data(0x3f86)"],
+      [3,4,"hal_write()"],
+      [4,5,"I²C: 停止コマンド","data"],
+      [2,4,"sleep_usec(500000)","wait"],
+      [4,6,"vTaskDelay()","wait"],
+      [0,1,"start_periodic_measurement()"],
+      [1,2,"scd4x_start_periodic_measurement()"],
+      [2,3,"write_data(0x21b1)"],
+      [3,4,"hal_write()"],
+      [4,5,"I²C: 開始コマンド","data"]
+    ];
+    const measurement = [
+      [0,6,"xTaskDelayUntil(約5秒)","wait"],
+      [0,1,"try_read_measurement()"],
+      [1,2,"get_data_ready_status()"],
+      [2,3,"write_data(0xe4b8)"],
+      [3,4,"hal_write()"],
+      [4,5,"I²C: 準備確認","data"],
+      [2,4,"sleep_usec(1000)","wait"],
+      [4,6,"vTaskDelay()","wait"],
+      [2,3,"read_data_inplace(2バイト)"],
+      [3,4,"hal_read(CRC込み3バイト)"],
+      [4,5,"I²C: 状態応答","data"],
+      [3,3,"CRC検証 / READY判定","note"],
+      [0,0,"NOT_READY → ESP_ERR_NOT_FINISHED → 次の周期へ","section"],
+      [0,0,"READY の場合のみ以下を実行","section"],
+      [1,2,"read_measurement()"],
+      [2,3,"write_data(0xec05)"],
+      [3,4,"hal_write()"],
+      [4,5,"I²C: 測定値要求","data"],
+      [2,4,"sleep_usec(1000)","wait"],
+      [4,6,"vTaskDelay()","wait"],
+      [2,3,"read_data_inplace(6バイト)"],
+      [3,4,"hal_read(CRC込み9バイト)"],
+      [4,5,"I²C: CO₂・温度・湿度","data"],
+      [3,3,"CRC検証","note"],
+      [2,2,"温度・湿度の単位変換","note"],
+      [1,0,"測定値を返す","data"],
+      [0,0,"xQueueOverwrite(最新値)","note"]
+    ];
+    const ns = "http://www.w3.org/2000/svg";
+    function svgElement(name, attrs, text) {
+      const el = document.createElementNS(ns, name);
+      for (const [key,value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+      if (text !== undefined) el.textContent = text;
+      return el;
+    }
+    function render(targetId, steps) {
+      const x = [80,260,440,620,800,980,1160];
+      const top = 87, row = 51, width = 1240, height = top + row * steps.length + 52;
+      const svg = svgElement("svg", {viewBox:`0 0 ${width} ${height}`, role:"presentation"});
+      const defs = svgElement("defs", {});
+      for (const [name,color] of [["blue","#27758a"],["red","#bf544b"],["green","#147b70"]]) {
+        const marker = svgElement("marker", {id:`arrow-${name}`,markerWidth:9,markerHeight:9,refX:8,refY:4.5,orient:"auto"});
+        marker.append(svgElement("path", {d:"M0 0 L9 4.5 L0 9 Z",fill:color}));
+        defs.append(marker);
+      }
+      svg.append(defs);
+      actors.forEach(([name,role],i) => {
+        svg.append(svgElement("line", {x1:x[i],y1:68,x2:x[i],y2:height-20,class:"lifeline"}));
+        svg.append(svgElement("rect", {x:x[i]-75,y:8,width:150,height:60,rx:9,class:"participant"}));
+        svg.append(svgElement("text", {x:x[i],y:34,"text-anchor":"middle",class:"participant-text"},name));
+        svg.append(svgElement("text", {x:x[i],y:53,class:"participant-role"},role));
+      });
+      steps.forEach(([from,to,label,kind="call"],i) => {
+        const y = top + i * row;
+        if (kind === "section") {
+          svg.append(svgElement("rect", {x:32,y:y-15,width:1176,height:33,rx:7,class:"separator"}));
+          svg.append(svgElement("text", {x:48,y:y+7,class:"separator-text"},label));
+          return;
+        }
+        svg.append(svgElement("text", {x:25,y:y+5,class:"step-number"},i+1));
+        if (from === to) {
+          svg.append(svgElement("rect", {x:x[from]+12,y:y-19,width:Math.min(500,label.length*14+22),height:30,rx:6,fill:"#edf5f3"}));
+          svg.append(svgElement("text", {x:x[from]+23,y:y+2,fill:"#147b70","font-size":13,"font-weight":700},label));
+          return;
+        }
+        const start = x[from] + (to > from ? 13 : -13);
+        const end = x[to] + (to > from ? -13 : 13);
+        svg.append(svgElement("line", {x1:start,y1:y+7,x2:end,y2:y+7,class:`message ${kind === "wait" || kind === "data" ? kind : ""}`}));
+        svg.append(svgElement("text", {x:(start+end)/2,y:y-3,class:`message-label ${kind === "wait" || kind === "data" ? kind : ""}`},label));
+      });
+      document.getElementById(targetId).append(svg);
+    }
+    render("startup-diagram", startup);
+    render("measurement-diagram", measurement);
+  </script>
+</body>
+</html>
