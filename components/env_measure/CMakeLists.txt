@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS "env_measure.c"
     INCLUDE_DIRS "include"
-    REQUIRES freertos
+    REQUIRES freertos esp_timer
     PRIV_REQUIRES scd4x log
 )

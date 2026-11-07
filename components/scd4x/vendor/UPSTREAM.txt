@@ -1,4 +1,0 @@
-Source: https://github.com/Sensirion/embedded-i2c-scd4x
-Commit: b52cebe1bb1b7050feaac75d7cd33e56c6a8a4e9
-sensirion_i2c_hal.c is intentionally excluded.
-Unused single-shot APIs were removed from scd4x_i2c.c and scd4x_i2c.h.

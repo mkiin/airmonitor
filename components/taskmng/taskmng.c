@@ -4,6 +4,7 @@
 
 #include "env_measure.h"
 #include "env_telemetory.h"
+#include "esp_timer.h"
 #include "freertos/event_groups.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -24,6 +25,7 @@ static env_measure_args_t    s_env_measure_args;
 static env_telemetory_args_t s_env_telemetory_args;
 static QueueHandle_t         s_measurement_queue;
 static EventGroupHandle_t    s_network_event_group;
+static esp_timer_handle_t    s_env_measure_timer;
 
 static taskmng_entry_t s_task_entries[] = {
     {
@@ -45,6 +47,15 @@ static taskmng_entry_t s_task_entries[] = {
      .handle           = NULL,
      }
 };
+
+static void taskmng_env_measure_timer_callback(void *arg)
+{
+    taskmng_entry_t *entry = (taskmng_entry_t *)arg;
+    if ( entry->handle != NULL )
+    {
+        xTaskNotify(entry->handle, ENV_MEASURE_TIMER_BIT, eSetBits);
+    }
+}
 
 esp_err_t taskmng_init_all(void)
 {
@@ -91,6 +102,24 @@ esp_err_t taskmng_init_all(void)
 
 esp_err_t taskmng_create_all(void)
 {
+    if ( s_env_measure_timer != NULL )
+    {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    const esp_timer_create_args_t timer_args = {
+        .callback        = taskmng_env_measure_timer_callback,
+        .arg             = &s_task_entries[ 0 ],
+        .dispatch_method = ESP_TIMER_TASK,
+        .name            = "env_measure",
+    };
+    esp_err_t err = esp_timer_create(&timer_args, &s_env_measure_timer);
+    if ( err != ESP_OK )
+    {
+        return err;
+    }
+    s_env_measure_args.deadline_timer = s_env_measure_timer;
+
     for ( size_t i = 0; i < sizeof(s_task_entries) / sizeof(s_task_entries[ 0 ]); ++i )
     {
         if ( s_task_entries[ i ].run == NULL )

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCD41 測定タスクの状態遷移図</title>
+  <style>
+    :root { color-scheme:light; --bg:#f2f6f8; --paper:#fff; --ink:#17323e; --muted:#536c77; --line:#d4e0e5; --ok:#167a73; --retry:#be7145; --timer:#315e9e; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif; line-height:1.55; }
+    main { width:min(1600px,calc(100% - 32px)); margin:0 auto; padding:38px 0 50px; }
+    h1 { margin:0; font-size:clamp(1.75rem,3.3vw,2.6rem); letter-spacing:-.03em; }
+    h2 { margin:0 0 12px; font-size:1.08rem; }
+    .eyebrow { margin:0 0 7px; font-size:.77rem; font-weight:800; letter-spacing:.14em; color:var(--ok); }
+    .lead { max-width:900px; margin:10px 0 23px; color:var(--muted); }
+    .panel { background:var(--paper); border:1px solid var(--line); border-radius:16px; box-shadow:0 9px 30px #16323e0c; }
+    .panel-head { padding:22px 24px 2px; }
+    .legend { display:flex; flex-wrap:wrap; gap:16px; margin:0 0 10px; color:var(--muted); font-size:.84rem; }
+    .key { display:inline-flex; align-items:center; gap:7px; }
+    .swatch { width:21px; border-top:3px solid var(--ok); }
+    .swatch.retry { border-color:var(--retry); }
+    .swatch.timer { border-color:var(--timer); }
+    .scroll { overflow-x:auto; padding:0 16px 16px; }
+    svg { display:block; width:100%; min-width:1500px; height:auto; }
+    .state { fill:#f5faf9; stroke:#7da9a5; stroke-width:2; }
+    .state.wait { fill:#f4f7fd; stroke:#8ba8d1; }
+    .state-name { fill:var(--ink); font-size:18px; font-weight:800; font-family:inherit; text-anchor:middle; }
+    .state-action { fill:var(--muted); font-size:14px; font-family:inherit; text-anchor:middle; }
+    .state-tag { fill:var(--ok); font-size:12px; font-weight:800; font-family:inherit; text-anchor:middle; }
+    .state-tag.wait { fill:var(--timer); }
+    .edge { fill:none; stroke:var(--ok); stroke-width:2.8; marker-end:url(#arrow-ok); }
+    .edge.retry { stroke:var(--retry); marker-end:url(#arrow-retry); }
+    .edge.start { stroke:var(--timer); marker-end:url(#arrow-timer); }
+    .edge-label { fill:var(--ok); font-size:13px; font-weight:750; font-family:inherit; text-anchor:middle; }
+    .edge-label.retry { fill:var(--retry); }
+    .edge-label.start { fill:var(--timer); }
+    .small-note { fill:#6d828b; font-size:12px; font-family:inherit; text-anchor:middle; }
+    .bottom { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:18px; }
+    .note { padding:20px 23px; }
+    .note p { margin:0; color:var(--muted); font-size:.91rem; }
+    code { padding:.1em .26em; border-radius:4px; background:#e9f0f2; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.89em; }
+    @media(max-width:760px) { main { padding-top:25px; } .bottom { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">IMPLEMENTED STATE MACHINE</p>
+    <h1>SCD41 測定タスクの状態遷移</h1>
+    <p class="lead"><code>env_measure_run()</code> の現在の実装です。矢印の時間だけ単一の <code>esp_timer</code> をセットし、<code>taskmng</code> のコールバックが測定タスクへ通知します。通知を受けると遷移先の処理を実行します。</p>
+    <section class="panel" aria-labelledby="diagram-title">
+      <div class="panel-head">
+        <h2 id="diagram-title">状態遷移図</h2>
+        <div class="legend">
+          <span class="key"><span class="swatch"></span>成功・通常の進行</span>
+          <span class="key"><span class="swatch retry"></span>失敗・未準備からの再試行</span>
+          <span class="key"><span class="swatch timer"></span>起動・期限通知</span>
+        </div>
+      </div>
+      <div class="scroll">
+        <svg viewBox="0 0 1920 780" role="img" aria-labelledby="svg-title svg-desc">
+          <title id="svg-title">env_measure_run の5状態と遷移</title>
+          <desc id="svg-desc">起動後STOP、停止成功で500ミリ秒後WAIT_STOP、開始成功で5秒後WAIT_SAMPLE、準備確認要求成功で1ミリ秒後WAIT_READY_REPLY、READYかつ測定要求成功で1ミリ秒後WAIT_MEAS_REPLY。読み取り後は5秒でWAIT_SAMPLEへ戻る。失敗時は5秒後に再試行する。</desc>
+          <defs>
+            <marker id="arrow-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#167a73"/></marker>
+            <marker id="arrow-retry" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#be7145"/></marker>
+            <marker id="arrow-timer" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#315e9e"/></marker>
+          </defs>
+
+          <path class="edge start" d="M18 265 H45"/><text class="edge-label start" x="36" y="245">起動</text>
+          <path class="edge" d="M335 265 H420"/><text class="edge-label" x="378" y="163">送信成功</text><text class="small-note" x="378" y="182">500 ms</text>
+          <path class="edge" d="M710 265 H795"/><text class="edge-label" x="752" y="163">開始成功</text><text class="small-note" x="752" y="182">5秒</text>
+          <path class="edge" d="M1085 265 H1170"/><text class="edge-label" x="1127" y="163">要求成功</text><text class="small-note" x="1127" y="182">1 ms</text>
+          <path class="edge" d="M1460 265 H1545"/><text class="edge-label" x="1502" y="163">READY・要求成功</text><text class="small-note" x="1502" y="182">1 ms</text>
+
+          <path class="edge retry" d="M470 360 V435 H185 V361"/>
+          <text class="edge-label retry" x="327" y="423">開始失敗 → STOP</text><text class="small-note" x="327" y="452">5秒</text>
+          <path class="edge retry" d="M1230 360 V515 H935 V361"/>
+          <text class="edge-label retry" x="1082" y="503">NOT_READY / 応答失敗 / 測定要求失敗</text><text class="small-note" x="1082" y="532">5秒で再確認</text>
+          <path class="edge" d="M1685 360 V620 H1035 V361"/>
+          <text class="edge-label" x="1360" y="607">読取後 → 次回確認</text><text class="small-note" x="1360" y="639">成功時はQueue更新 / 読取失敗・0 ppmなら更新なし / 5秒</text>
+
+          <path class="edge retry" d="M90 190 V112 H285 V189"/>
+          <text class="edge-label retry" x="188" y="103">停止失敗 → 5秒後に再試行</text>
+          <path class="edge retry" d="M840 190 V112 H1035 V189"/>
+          <text class="edge-label retry" x="938" y="103">確認要求失敗 → 5秒後に再試行</text>
+
+          <g>
+            <rect class="state" x="45" y="190" width="290" height="170" rx="18"/>
+            <text class="state-tag" x="190" y="220">起動直後・再試行時</text>
+            <text class="state-name" x="190" y="254">ENV_STOP</text>
+            <text class="state-action" x="190" y="290">周期測定の停止コマンド</text>
+            <text class="state-action" x="190" y="314">0x3f86 を送信</text>
+          </g>
+          <g>
+            <rect class="state wait" x="420" y="190" width="290" height="170" rx="18"/>
+            <text class="state-tag wait" x="565" y="220">500 ms の期限後</text>
+            <text class="state-name" x="565" y="254">ENV_WAIT_STOP</text>
+            <text class="state-action" x="565" y="290">周期測定の開始コマンド</text>
+            <text class="state-action" x="565" y="314">0x21b1 を送信</text>
+          </g>
+          <g>
+            <rect class="state wait" x="795" y="190" width="290" height="170" rx="18"/>
+            <text class="state-tag wait" x="940" y="220">5秒の期限後</text>
+            <text class="state-name" x="940" y="254">ENV_WAIT_SAMPLE</text>
+            <text class="state-action" x="940" y="290">準備状態の確認コマンド</text>
+            <text class="state-action" x="940" y="314">0xe4b8 を送信</text>
+          </g>
+          <g>
+            <rect class="state wait" x="1170" y="190" width="290" height="170" rx="18"/>
+            <text class="state-tag wait" x="1315" y="220">1 ms の期限後</text>
+            <text class="state-name" x="1315" y="254">ENV_WAIT_READY_REPLY</text>
+            <text class="state-action" x="1315" y="290">準備状態を読み取る</text>
+            <text class="state-action" x="1315" y="314">READYなら 0xec05 を送信</text>
+          </g>
+          <g>
+            <rect class="state wait" x="1545" y="190" width="290" height="170" rx="18"/>
+            <text class="state-tag wait" x="1690" y="220">1 ms の期限後</text>
+            <text class="state-name" x="1690" y="254">ENV_WAIT_MEAS_REPLY</text>
+            <text class="state-action" x="1690" y="290">測定値を読み取る</text>
+            <text class="state-action" x="1690" y="314">有効値ならQueueへ保存</text>
+          </g>
+
+          <rect x="330" y="689" width="1260" height="59" rx="11" fill="#eef4fa" stroke="#cad8e7"/>
+          <text class="edge-label start" x="960" y="714">すべての待ち時間：esp_timer_start_once() → taskmng の callback → xTaskNotify() → xTaskNotifyWait() 解除</text>
+          <text class="small-note" x="960" y="735">タイマー通知は期限到来を示すだけ。SCD41の測定準備は ENV_WAIT_READY_REPLY でI²C確認する。</text>
+        </svg>
+      </div>
+    </section>
+    <div class="bottom">
+      <section class="panel note">
+        <h2>ハンドルの所有</h2>
+        <p><code>taskmng</code> が単一の <code>esp_timer_handle_t</code> と通知先の <code>TaskHandle_t</code> を保持します。測定タスクはタイマーハンドルを借りて次の期限を設定します。</p>
+      </section>
+      <section class="panel note">
+        <h2>通信と待機の境界</h2>
+        <p><code>scd4x_driver</code> は短い同期I²C通信とCRC確認だけを行います。500 ms・1 ms・5秒の期限管理は測定タスクと <code>taskmng</code> が担当します。</p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

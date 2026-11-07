@@ -11,7 +11,7 @@ class SensorData(BaseModel):
     humidity: int  # milli-percent relative humidity
 
 
-@app.post("/api/data")
+@app.post("/api/readings")
 async def receive_data(data: SensorData):
     print("--- 届いたデータ ---")
     print(f"Co2濃度: {data.co2_ppm} ")
@@ -24,4 +24,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # PCのIPアドレス（0.0.0.0）で待ち受け
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=5173)

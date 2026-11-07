@@ -1,4 +1,4 @@
-# FreeRTOS tick = 10 ms; sensor timing is handled by the HAL.
+# FreeRTOS tick = 10 ms; SCD41 deadlines use esp_timer.
 CONFIG_FREERTOS_HZ=100
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 # Console uses UART0 (TX GPIO43 / RX GPIO44), normally via a USB-UART bridge.
